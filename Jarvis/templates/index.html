@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Voice Translator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .output {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Vinnie's AI Voice Assistant</h1>
+        <button class="button" id="toggle-recording">Start Listening</button>
+        <audio controls id="audio-player" style="display: none;"></audio>
+        <div class="output" id="output"></div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+
+        const toggleRecordingButton = document.getElementById('toggle-recording');
+
+        toggleRecordingButton.addEventListener('click', async function() {
+            if (!isRecording) {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+
+                mediaRecorder.onstart = () => {
+                    document.getElementById('output').textContent = '';
+                    audioChunks = [];
+                };
+
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const formData = new FormData();
+                    formData.append('audio', audioBlob);
+
+                    const response = await fetch('/process-audio', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const url = URL.createObjectURL(blob);
+                        const audio = document.getElementById('audio-player');
+                        audio.src = url;
+                        audio.style.display = 'block';
+                        audio.play();
+                    } else {
+                        document.getElementById('output').textContent = 'Translation failed';
+                    }
+
+                    toggleRecordingButton.textContent = 'Start Listening';
+                    isRecording = false;
+                };
+
+                mediaRecorder.start();
+                toggleRecordingButton.textContent = 'Stop Listening';
+                isRecording = true;
+            } else {
+                mediaRecorder.stop();
+                toggleRecordingButton.textContent = 'Start Listening';
+                isRecording = false;
+            }
+        });
+    </script>
+</body>
+</html>
